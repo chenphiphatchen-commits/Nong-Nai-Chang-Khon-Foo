@@ -1,0 +1,544 @@
+{
+  "name": "นายช่างขนฟู",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook').item.json.body.events[0].message.text }}",
+        "options": {
+          "systemMessage": "ystem Prompt สำหรับ AI Agent (Update Work):\n\nRole: คุณคือ AI ผู้ช่วยวิศวกร หน้าที่หลักคือรับรายงานจากโฟร์แมนเพื่ออัปเดตตารางงาน (Sheet)\n\nCore Rules:\n\nCheck First: ก่อนอัปเดตทุกครั้ง ต้องเรียกใช้ check_master_plan เพื่อดูสถานะล่าสุด\n\nEstimation: หากโฟร์แมนรายงานงานเสร็จแต่ไม่ระบุเปอร์เซ็นต์ ให้คุณวิเคราะห์จากลักษณะงานและกะค่าความคืบหน้าที่เหมาะสมลงใน update_master_plan ใส่เป็น % นะ อย่า ใส่ 0.5 หรือ 0. ต่างๆ ให้ตอบเป็น 50%\n\nNo % in Line: ห้ามพิมพ์ค่าเปอร์เซ็นต์ตอบกลับโฟร์แมนใน Line เด็ดขาด (เก็บไว้รายงานใน Gmail เท่านั้น)\n\nResponse Logic (ตอบสั้นที่สุด):\n\nกรณีทักทาย: ตอบว่า \"สวัสดีครับ รบกวนรายงานด้วยครับ\"\n\nกรณีข้อมูลไม่ครบ: ตอบว่า \"ข้อมูลไม่ครบ (ขอข้อมูล: ชื่อโฟร์แมน, โครงการ, วันที่, และรายละเอียดงาน)\" เท่านั้น อย่าตอบอย่างอื่น\n\nกรณีอัปเดตสำเร็จ: ตอบแค่ \"ทราบครับ\" ตามด้วยข้อมูลทวนสั้นๆ: [วันที่ | โครงการ | ประเภทงาน | ชื่อผู้รายงาน]\n\nWorkflow Step:\n\nเมื่อได้รับข้อความ ให้เช็คว่าเป็นคำทักทาย หรือ รายงานงาน\n\nหากเป็นรายงาน ให้ใช้ check_master_plan เพื่อหาแถวที่ถูกต้อง\n\nใช้ update_master_plan เพื่อบันทึกข้อมูล (รวมถึงค่าเปอร์เซ็นต์ที่คุณกะเอาตามความเหมาะสมหากเขาไม่ระบุ)\n\nหลังอัปเดต ให้เรียก check_master_plan อีกครั้งเพื่อตรวจสอบผลกระทบต่อ CPM (Predecessor) สำหรับส่งข้อมูลให้ PE ต่อไป"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -320,
+        -352
+      ],
+      "id": "d3ef6fa6-4291-4e7c-97a9-114ad400625b",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "construction",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -880,
+        -352
+      ],
+      "id": "a4925149-dd67-4a7c-8353-6e053d2253a1",
+      "name": "Webhook",
+      "webhookId": "6e473de8-6d64-4a96-81a9-c4862e83ea8a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f23eb989-3cc3-4c2d-a77d-28e3b704c6ce",
+              "name": "body.events[0].message",
+              "value": "={{ $json.body.events[0].message }}",
+              "type": "object"
+            },
+            {
+              "id": "b6729352-5995-4ed2-9075-065ba1002ec9",
+              "name": "body.events[0].replyToken",
+              "value": "={{ $json.body.events[0].replyToken }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -352
+      ],
+      "id": "6a5f3354-1e1e-41b2-b319-5dd3c520a264",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -112,
+        -96
+      ],
+      "id": "ca9d030a-178a-45f4-a1cf-c72ad0e59efa",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "hd34Lfar2kkEI7TM",
+          "name": "Google Gemini(PaLM) Api account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "replyToken": "={{ $('Webhook').item.json.body.events[0].replyToken }}",
+        "messages": {
+          "values": [
+            {
+              "text": "={{ $json.output }}"
+            }
+          ]
+        }
+      },
+      "type": "@aotoki/n8n-nodes-line-messaging.lineMessaging",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -352
+      ],
+      "id": "271c8003-cbe8-46ab-8ec6-20a719c5137f",
+      "name": "Line Messaging",
+      "credentials": {
+        "lineMessagingApi": {
+          "id": "zvH4KFbAaqK0OgMH",
+          "name": "Line Messaging account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "chenphiphat.chen@gmail.com",
+        "subject": "report",
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        -352
+      ],
+      "id": "36c15419-03c1-4e24-a572-380e879a144d",
+      "name": "Send a message",
+      "webhookId": "48dab879-a1d8-411d-882d-5afe8ba9ca2e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fVPKmWIovvzvLc8D",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=#REPLY THIS IN THAI{{ $('Webhook').item.json.body.events[0].message.text }}",
+        "options": {
+          "systemMessage": "=System Prompt สำหรับการเขียนอีเมล (Gmail):\n\nคุณมีหน้าที่เขียนอีเมลรายงานสรุปสถานะงานก่อสร้างประจำวัน เพื่อส่งให้ Project Engineer (PE) รับทราบ โดยต้องดึงข้อมูลล่าสุดจาก check_master_plan มาวิเคราะห์ และเขียนเนื้อหาให้กระชับ เป็นทางการ แบ่งเป็น 3 ข้อดังนี้:\n\nสรุปข้อมูลการรายงาน: ให้ทวนข้อมูลตามรูปแบบนี้เท่านั้น:\n[ วันที่: ... | โครงการ: ... | ประเภทงาน: ... | ความคืบหน้า: ...% | ชื่อผู้รายงาน: ... ]\n\nวิเคราะห์สถานะแผนงาน (อ้างอิง CPM): ให้เปรียบเทียบความคืบหน้าที่ได้รับรายงาน กับแผนงานหลักใน check_master_plan แล้วสรุปว่างานนี้ \"ตรงตามแผน\", \"เร็วกว่าแผน\", หรือ \"ล่าช้า\" และระบุสั้นๆ ว่าส่งผลกระทบต่องานลำดับถัดไป (Predecessor) หรือไม่\n\nแนวทางการจัดการคนงาน (Action Plan): ให้ข้อเสนอแนะเชิงบริหารจัดการต่อทีมงาน/โฟร์แมนชุดนี้โดยอิงจากสถานการณ์ในข้อ 2 เช่น:\n\nกรณีงานล่าช้า: เสนอแนะให้พิจารณาเพิ่มโอที หรืออัดกำลังคนเพิ่ม\n\nกรณีมีคนลาป่วย/หยุด: เสนอแนะให้จัดหาคนงานชั่วคราวมาสลับสับเปลี่ยนเพื่อไม่ให้กระทบ CPM\n\nกรณีงานปกติ/ไวกว่าแผน: เสนอแนะให้โฟร์แมนคุมงานตามมาตรฐานเดิมต่อไป\n\nข้อควรระวัง: ใช้ภาษาที่เป็นมืออาชีพ สั้น ตรงประเด็น ไม่อารัมภบท"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        832,
+        -352
+      ],
+      "id": "732460e8-6fc6-4f5f-bb9a-8b715af8786d",
+      "name": "AI Agent1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.events[0].source.userId }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        -96
+      ],
+      "id": "71bec729-3c72-4b21-9e6b-970d8ac1a842",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a640fb77-716d-4810-ac37-81c6fadf3775",
+              "leftValue": "={{ $('AI Agent').item.json.output }}",
+              "rightValue": "ข้อมูลไม่ครบ (ขอข้อมูล: ชื่อโฟร์แมน, โครงการ, วันที่, และรายละเอียดงาน)",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        368,
+        -592
+      ],
+      "id": "b61d1c73-e72f-49f4-9c6a-a9b3faaf241c",
+      "name": "ข้อมูลไม่ครบ"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a8efcff-7eba-4865-998d-e2a1884bd074",
+              "leftValue": "={{ $('AI Agent').item.json.output }}",
+              "rightValue": "สวัสดีครับ รบกวนรายงานด้วยครับ",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        608,
+        -576
+      ],
+      "id": "62ec1f87-3270-447d-9ae0-b903a2a26db1",
+      "name": "ทักทาย"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to update status and progress of a task in Master Plan.",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ",
+          "mode": "list",
+          "cachedResultName": "Google Sheet R8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 600100588,
+          "mode": "list",
+          "cachedResultName": "ความคืบหน้างาน",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ/edit#gid=600100588"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ชื่องาน (Task Name)": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('_________Task_Name___using_to_match_', ``, 'string') }}",
+            "สถานะ (Status)": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('_______Status_', ``, 'string') }}",
+            "ความคืบหน้า (%)": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('_______________', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "ชื่องาน (Task Name)"
+          ],
+          "schema": [
+            {
+              "id": "ชื่องาน (Task Name)",
+              "displayName": "ชื่องาน (Task Name)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "งานที่ต้องเสร็จก่อน (Predecessor)",
+              "displayName": "งานที่ต้องเสร็จก่อน (Predecessor)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "วันเริ่ม (Start)",
+              "displayName": "วันเริ่ม (Start)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "วันเสร็จ (End)",
+              "displayName": "วันเสร็จ (End)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "สถานะ (Status)",
+              "displayName": "สถานะ (Status)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ความคืบหน้า (%)",
+              "displayName": "ความคืบหน้า (%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        -80
+      ],
+      "id": "12ced50a-02e7-48c0-9ce3-d6fad5c8fa23",
+      "name": "update master plan",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "uJ3VT0knzZqjKB3G",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to read the Master Plan sheet to check the current status, progress, and schedule of construction tasks.",
+        "documentId": {
+          "__rl": true,
+          "value": "1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ",
+          "mode": "list",
+          "cachedResultName": "Google Sheet R8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 600100588,
+          "mode": "list",
+          "cachedResultName": "ความคืบหน้างาน",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GMHxlFlQ6ph78dn1AQVmiNP-jfcarubDwQIlO-YOPcQ/edit#gid=600100588"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        -80
+      ],
+      "id": "5dfd5ff4-5169-4ff0-b321-5b6c02be77c6",
+      "name": "check_master_plan",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "uJ3VT0knzZqjKB3G",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Line Messaging",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Line Messaging": {
+      "main": [
+        [
+          {
+            "node": "ข้อมูลไม่ครบ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ข้อมูลไม่ครบ": {
+      "main": [
+        [],
+        [
+          {
+            "node": "ทักทาย",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ทักทาย": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update master plan": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_master_plan": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "03c50721-f455-4436-a8e6-92728b97900a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c340d03ea6fa604f22b14e407fa3a9536eda3c7d033ff68d5a6c5360ec7ce0ee"
+  },
+  "id": "u3ZFRpmlGlCv0ITc",
+  "tags": []
+}
